@@ -28,7 +28,21 @@ config = ConfigLoader(config_path)
 Api_key = config.get('binance.api_key')
 Api_secret = config.get('binance.api_secret')
 
-Interval = config.get('market.interval', Client.KLINE_INTERVAL_30MINUTE)
+# Conversion de l'intervalle du fichier de configuration en constante Binance
+interval_str = config.get('market.interval', '30MINUTE')
+if interval_str == '30MINUTE':
+    Interval = Client.KLINE_INTERVAL_30MINUTE
+elif interval_str == '1HOUR':
+    Interval = Client.KLINE_INTERVAL_1HOUR
+elif interval_str == '4HOUR':
+    Interval = Client.KLINE_INTERVAL_4HOUR
+elif interval_str == '1DAY':
+    Interval = Client.KLINE_INTERVAL_1DAY
+else:
+    # Valeur par défaut si l'intervalle n'est pas reconnu
+    Interval = Client.KLINE_INTERVAL_30MINUTE
+    logging.warning(f"Intervalle '{interval_str}' non reconnu, utilisation de 30MINUTE par défaut")
+
 Marche = config.get('market.symbol', 'BTCUSDC')
 days = config.get_int('market.days', 10)
 fees = config.get_float('market.fees', 0.001)  # 0.1% de frais par défaut
