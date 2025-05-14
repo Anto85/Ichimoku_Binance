@@ -6,22 +6,24 @@ import logging
 import os
 import sys
 
+# Ajouter le chemin parent pour les imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Importer notre système d'email et le gestionnaire de configuration
+from mailer import EmailSender
+from properties.config_loader import ConfigLoader
+
 # Configurer le logger avec des chemins absolus
-log_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'log'))
+log_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'log'))
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, 'ptndelog.log')
 logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s - %(message)s')
 
-# Importer notre système d'email et le gestionnaire de configuration
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from mailer import EmailSender
-from properties.config_loader import ConfigLoader
-
-# Importer les fonctions nécessaires depuis main.py
+# Importer les fonctions nécessaires depuis mainclear.py
 from controller.mainclear import get_historical_data, ichimoku_cloud, analyze_signals, calculate_rsi, analyze_volume, place_order, get_account_balance, get_btc_price, get_lot_size, adjust_quantity, get_min_notional
 
 # Charger la configuration avec un chemin absolu
-config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'properties', 'application.properties'))
+config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'properties', 'application.properties'))
 config = ConfigLoader(config_path)
 
 # Récupérer les paramètres de configuration

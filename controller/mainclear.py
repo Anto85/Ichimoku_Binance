@@ -3,18 +3,45 @@ import pandas as pd
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import os
+import sys
 
-Api_key = "****"
-Api_secret = "****"
+# Ajouter le chemin racine pour les imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from properties.config_loader import ConfigLoader
 
-days = 10
-tenkan_sen_high = 18
-kijun_sen_high = 52
+# Charger la configuration
+config = ConfigLoader()
+
+# Récupérer les paramètres de configuration
+Api_key = config.get('binance.api_key')
+Api_secret = config.get('binance.api_secret')
+
+days = config.get_int('market.days', 10)
+tenkan_sen_high = config.get_int('ichimoku.tenkan_period', 18)
+kijun_sen_high = config.get_int('ichimoku.kijun_period', 52)
 senkou_span_high = 2*kijun_sen_high
 k = 10**-5
-Interval = Client.KLINE_INTERVAL_30MINUTE
+
+# Conversion de l'intervalle du fichier de configuration en constante Binance
+interval_str = config.get('market.interval', '30MINUTE')
+if interval_str == '30MINUTE':
+    Interval = Client.KLINE_INTERVAL_30MINUTE
+elif interval_str == '1HOUR':
+    Interval = Client.KLINE_INTERVAL_1HOUR
+elif interval_str == '4HOUR':
+    Interval = Client.KLINE_INTERVAL_4HOUR
+elif interval_str == '1DAY':
+    Interval = Client.KLINE_INTERVAL_1DAY
+else:
+    # Valeur par défaut si l'intervalle n'est pas reconnu
+    Interval = Client.KLINE_INTERVAL_30MINUTE
+    print(f"Intervalle '{interval_str}' non reconnu, utilisation de 30MINUTE par défaut")
+
 window = 20
-Marche = "BTCUSDC"
+Marche = config.get('market.symbol', 'BTCUSDC')
+volume_threshold = config.get_float('ichimoku.volume_threshold', 1.5)
+rsi_threshold = config.get_int('ichimoku.rsi_threshold', 50)
 
 start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
 
@@ -45,7 +72,7 @@ def get_btc_price():
 def get_historical_data(symbol, interval, start_str, end_str=None, limit=1000):
     klines = client.get_historical_klines(symbol, interval, start_str, end_str, limit)
     df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms') + timedelta(hours=1)
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms') + timedelta(hours=2)
     df.set_index('timestamp', inplace=True)
     return df[['open', 'high', 'low', 'close', 'volume']]
 
@@ -103,7 +130,7 @@ def analyze_signals(df, volume_signals, rsi_threshold=50):
              df['senkou_span_a'].iloc[i-1] > df['senkou_span_b'].iloc[i-1])):
             kumo_switches.append(df.index[i])
 
-    return buy_signals, sell_signals, kumo_switches
+    return sell_signals, buy_signals, kumo_switches
 
 def place_order(symbol, side, quantity):
     try:
@@ -137,9 +164,13 @@ def get_lot_size(symbol):
         return f"An error occurred: {e}"
 
 def adjust_quantity(quantity, min_qty, step_size):
+    """
+    Ajuste la quantité pour qu'elle respecte les contraintes de Binance.
+    """
     if quantity < min_qty:
         return min_qty
-    return round(quantity - (quantity % step_size), 5)
+    # Arrondir la quantité au multiple le plus proche de step_size
+    return float(format(quantity - (quantity % step_size), f'.{len(str(step_size).split(".")[1])}f'))
 
 def calculate_rsi(df, period=14):
     delta = df['close'].astype(float).diff()
